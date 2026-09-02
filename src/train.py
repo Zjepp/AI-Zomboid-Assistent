@@ -16,4 +16,4 @@ def train_model(data_yaml: str, epochs: int = 100, imgsz: int = 640, model_size:
     return results
 
 if __name__ == "__main__":
-    train_model(data_yaml="data/dataset/data.yaml", epochs=100)
+    train_model(data_yaml="data/dataset/data.yaml", epochs=300)
