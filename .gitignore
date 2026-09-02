@@ -7,3 +7,5 @@ data/dataset/
 models/*.pt
 .env
 Thumbs.db
+models/
+data/
