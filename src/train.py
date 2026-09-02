@@ -7,7 +7,7 @@ def train_model(data_yaml: str, epochs: int = 100, imgsz: int = 640, model_size:
         data=data_yaml,
         epochs=epochs,
         imgsz=imgsz,
-        batch=16,
+        batch=32,
         patience=20,            
         project="models",
         name="zomboid_detector",
