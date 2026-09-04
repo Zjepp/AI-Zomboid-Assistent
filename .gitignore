@@ -9,3 +9,6 @@ models/*.pt
 Thumbs.db
 models/
 data/
+*.jpg
+*jpeg
+*.png
