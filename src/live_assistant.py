@@ -5,12 +5,20 @@
 # een waarschuwing. Gebruikt standaard de lokale, regelgebaseerde advisor
 # (onbeperkt bruikbaar) -- GenAI kan optioneel af en toe gebruikt worden.
 #
+# Slaat ook elk geanalyseerd frame (met bounding boxes erop getekend) op in
+# 'live_captures/', zodat je achteraf kan nakijken wat het model precies zag
+# op het moment van elke waarschuwing.
+#
 # Stoppen: Ctrl+C in de terminal.
 
 import time
+import importlib
+from pathlib import Path
 import numpy as np
-import mss
+import cv2
 from ultralytics import YOLO
+
+mss = importlib.import_module("mss")
 
 from risk_score import compute_risk_score
 from rule_based_advisor import generate_advice_local
@@ -24,6 +32,17 @@ CONF_THRESHOLD = 0.25
 USE_GENAI_ON_HIGH_RISK = False
 GENAI_RISK_THRESHOLD = 40
 
+# Elk geanalyseerd frame opslaan met bounding boxes erop getekend, zodat je
+# achteraf kan nakijken wat het model zag. Zet op False om dit uit te schakelen
+# (bv. bij lange sessies, om niet duizenden afbeeldingen op te stapelen).
+SAVE_ANNOTATED_FRAMES = True
+CAPTURES_DIR = Path("live_captures")
+
+# Enkel frames bewaren vanaf dit risiconiveau (0 = alles bewaren). Handig om
+# schijfruimte te besparen tijdens lange sessies en enkel de interessante
+# momenten (hoog risico) achteraf te kunnen bekijken.
+SAVE_ONLY_ABOVE_RISK = 0
+
 
 def capture_screen(sct, monitor) -> np.ndarray:
     """Neemt een screenshot van het opgegeven scherm en zet het om naar een numpy array (BGR, zoals OpenCV verwacht)."""
@@ -35,7 +54,13 @@ def capture_screen(sct, monitor) -> np.ndarray:
 def run_live_assistant():
     print("Zomboid Survival Assistant -- live modus gestart.")
     print(f"Model: {MODEL_PATH}")
-    print(f"Interval: {CAPTURE_INTERVAL_SECONDS}s. Druk Ctrl+C om te stoppen.\n")
+    print(f"Interval: {CAPTURE_INTERVAL_SECONDS}s. Druk Ctrl+C om te stoppen.")
+
+    if SAVE_ANNOTATED_FRAMES:
+        CAPTURES_DIR.mkdir(exist_ok=True)
+        print(f"Geannoteerde frames worden opgeslagen in: {CAPTURES_DIR.resolve()}\n")
+    else:
+        print()
 
     model = YOLO(MODEL_PATH)
 
@@ -59,8 +84,16 @@ def run_live_assistant():
                 advice = generate_advice_local(risk_data)
 
                 timestamp = time.strftime("%H:%M:%S")
+                timestamp_filename = time.strftime("%Y%m%d_%H%M%S")
+                richtingen = ", ".join(risk_data["safest_directions"]) if risk_data["safest_directions"] else "-"
                 print(f"[{timestamp}] risk={risk_data['risk_score']:>6.2f}  "
-                      f"richting={risk_data['safest_direction']}  |  {advice}")
+                      f"richting(en)={richtingen}  |  {advice}")
+
+                # Frame met bounding boxes opslaan voor latere controle
+                if SAVE_ANNOTATED_FRAMES and risk_data["risk_score"] >= SAVE_ONLY_ABOVE_RISK:
+                    annotated = result.plot()  # numpy array (BGR) met boxes/labels erop getekend
+                    filename = CAPTURES_DIR / f"{timestamp_filename}_risk{risk_data['risk_score']:.0f}.jpg"
+                    cv2.imwrite(str(filename), annotated)
 
                 # Optioneel: spaarzame GenAI-aanvraag bij hoog risico
                 if (USE_GENAI_ON_HIGH_RISK
@@ -78,6 +111,9 @@ def run_live_assistant():
 
         except KeyboardInterrupt:
             print("\nGestopt door gebruiker.")
+            if SAVE_ANNOTATED_FRAMES:
+                saved_count = len(list(CAPTURES_DIR.glob("*.jpg")))
+                print(f"{saved_count} geannoteerde frames opgeslagen in {CAPTURES_DIR.resolve()}")
 
 
 if __name__ == "__main__":

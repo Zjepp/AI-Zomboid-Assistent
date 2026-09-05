@@ -1,18 +1,11 @@
-# src/risk_score.py
 from ultralytics import YOLO
 from pathlib import Path
 import math
 
 CLASS_NAMES = ['Door', 'Fire', 'Player', 'Tree', 'Zombie', 'Zombie Dead', 'window']
 
-MAX_DISTANCE = math.sqrt(2)  # max mogelijke afstand in genormaliseerde (0-1) ruimte
+MAX_DISTANCE = math.sqrt(2) 
 
-# Project Zomboid heeft een isometrische camera: "recht omhoog" op je scherm komt
-# niet overeen met "Noord" op het spelkompas. Deze offset compenseert die rotatie.
-# STANDAARD AANNAME: schermboven = Noordoost (dit is de gangbare PZ-conventie,
-# W-toets beweegt richting NO, D-toets richting ZO, S richting ZW, A richting NW).
-# Test dit zelf in-game (kijk naar het kompasje linksboven terwijl je een richting
-# induwt) en pas ISO_OFFSET_DEGREES aan indien nodig.
 ISO_OFFSET_DEGREES = 45
 
 COMPASS_DIRECTIONS = ["N", "NO", "O", "ZO", "Z", "ZW", "W", "NW"]
@@ -42,19 +35,13 @@ def screen_bearing_to_compass(dx: float, dy: float) -> tuple[str, float]:
 
     Schermcoördinaten: dx > 0 = rechts, dy > 0 = naar beneden (normale beeldconventie).
     """
-    # Standaard schermhoek: 0° = rechts, tegen de klok in (standaard wiskundige conventie)
-    # We draaien dy om omdat schermcoördinaten naar beneden toenemen, wiskundig omgekeerd
-    screen_angle = math.degrees(math.atan2(-dy, dx))  # -90..90 boven, etc.
+    screen_angle = math.degrees(math.atan2(-dy, dx))
     screen_angle = (screen_angle + 360) % 360
 
-    # 0° in onze eigen conventie = "schermboven" (12 uur), dus herschikken:
-    # atan2 geeft 0° = rechts (3 uur), we willen 0° = boven (12 uur)
     angle_from_top = (90 - screen_angle) % 360
 
-    # Isometrische correctie toepassen
     compass_angle = (angle_from_top + ISO_OFFSET_DEGREES) % 360
 
-    # Omzetten naar 1 van 8 kompasrichtingen (elke richting beslaat 45°)
     index = round(compass_angle / 45) % 8
     return COMPASS_DIRECTIONS[index], compass_angle
 
@@ -62,10 +49,13 @@ def screen_bearing_to_compass(dx: float, dy: float) -> tuple[str, float]:
 def compute_safest_direction(detections: list[dict], player_pos: tuple[float, float] | None) -> dict:
     """
     Bepaalt, op basis van de posities van zombies/vuur relatief aan de speler,
-    welke van de 8 kompasrichtingen het minst bedreigd is (= veiligste richting om heen te gaan).
+    welke van de 8 kompasrichtingen het minst bedreigd zijn (= veiligste richtingen om heen te gaan).
+
+    Geeft alle richtingen terug die (binnen een kleine tolerantie) gelijk scoren aan het
+    minimum, in plaats van willekeurig de eerste in de lijst te kiezen bij gelijkstand.
     """
     if player_pos is None:
-        return {"safest_direction": None, "direction_scores": {}}
+        return {"safest_directions": [], "safest_direction": None, "direction_scores": {}}
 
     threat_by_direction = {d: 0.0 for d in COMPASS_DIRECTIONS}
 
@@ -77,21 +67,22 @@ def compute_safest_direction(detections: list[dict], player_pos: tuple[float, fl
         dy = det["y"] - player_pos[1]
         distance = math.hypot(dx, dy)
 
-        # Object dat exact op de speler-positie zit (zelden, edge case) negeren we
         if distance < 1e-6:
             continue
 
         direction, _ = screen_bearing_to_compass(dx, dy)
         weight = proximity_from_distance(distance)
 
-        # Vuur weegt zwaarder mee dan een zombie in de richtingsbepaling
         multiplier = 1.5 if det["class"] == "Fire" else 1.0
         threat_by_direction[direction] += weight * multiplier
 
-    safest = min(threat_by_direction, key=threat_by_direction.get)
+    min_threat = min(threat_by_direction.values())
+    tolerance = 1e-6
+    safest_directions = [d for d, v in threat_by_direction.items() if v <= min_threat + tolerance]
 
     return {
-        "safest_direction": safest,
+        "safest_directions": safest_directions,
+        "safest_direction": safest_directions[0] if safest_directions else None,
         "direction_scores": {k: round(v, 3) for k, v in threat_by_direction.items()},
     }
 
@@ -102,7 +93,7 @@ def compute_risk_score(result) -> dict:
 
     Als de speler zelf gedetecteerd is, wordt de echte relatieve afstand
     (speler-positie tot object-positie) gebruikt in plaats van de ruwe proxy,
-    en wordt ook de veiligste kompasrichting berekend.
+    en wordt ook de veiligste kompasrichting(en) berekend.
     """
     detections = []
     player_pos = None
@@ -191,6 +182,7 @@ def compute_risk_score(result) -> dict:
         "exit_bonus": round(exit_bonus, 2),
         "free_routes": free_routes,
         "player_detected": player_pos is not None,
+        "safest_directions": direction_info["safest_directions"],
         "safest_direction": direction_info["safest_direction"],
         "direction_scores": direction_info["direction_scores"],
     }
@@ -225,7 +217,8 @@ if __name__ == "__main__":
     if target_path.is_dir():
         all_results = analyze_folder(str(target_path))
         for r in all_results:
-            print(f"{r['image']}: risk_score={r['risk_score']}  safest_direction={r['safest_direction']}")
+            richtingen = ", ".join(r["safest_directions"]) if r["safest_directions"] else "-"
+            print(f"{r['image']}: risk_score={r['risk_score']}  richting(en)={richtingen}")
 
         scores = [r["risk_score"] for r in all_results]
         if scores:
