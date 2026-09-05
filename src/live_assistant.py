@@ -64,7 +64,7 @@ def run_live_assistant():
 
     model = YOLO(MODEL_PATH)
 
-    with mss.mss() as sct:
+    with mss.MSS() as sct:
         # Standaard: hoofdscherm. Pas 'monitor' aan indien je meerdere schermen hebt
         # en het spel niet op het eerste scherm draait (sct.monitors[1] = eerste
         # fysieke scherm, sct.monitors[2] = tweede, etc. -- [0] is alle schermen samen).
