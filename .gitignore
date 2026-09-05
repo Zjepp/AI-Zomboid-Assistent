@@ -12,3 +12,6 @@ data/
 *.jpg
 *jpeg
 *.png
+yolo26n.pt
+yolov8n.pt
+!models\zomboid_v1.pt
