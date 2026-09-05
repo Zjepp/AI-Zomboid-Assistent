@@ -87,12 +87,6 @@ python src\risk_score.py path\to\screenshot.jpg
 python src\risk_score.py path\to\folder_of_images
 ```
 
-### Run the full pipeline (detection + risk score + GenAI advice) on one image
-
-```powershell
-python src\pipeline.py path\to\screenshot.jpg
-```
-
 ### Get a GenAI-generated warning for one screenshot (optional, requires `.env` setup)
 
 ```powershell
