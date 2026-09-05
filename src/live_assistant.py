@@ -25,7 +25,7 @@ from rule_based_advisor import generate_advice_local
 
 MODEL_PATH = "models/zomboid_v1.pt"
 CAPTURE_INTERVAL_SECONDS = 3        # hoe vaak een nieuwe screenshot genomen wordt
-CONF_THRESHOLD = 0.25
+CONF_THRESHOLD = 0.2
 
 # Zet op True om af en toe (bv. enkel bij hoog risico) ook GenAI-advies te vragen.
 # Gezien de daglimiet van 5 aanvragen: hou dit spaarzaam.

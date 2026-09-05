@@ -6,7 +6,7 @@ def main():
     model = YOLO("runs/detect/models/zomboid_detector/weights/best.pt")
 
     test_images = Path("data/dataset/test/images")
-    model.predict(source=str(test_images), save=True, conf=0.25, iou=0.4, project="reports", name="predictions")
+    model.predict(source=str(test_images), save=True, conf=0.2, iou=0.4, project="reports", name="predictions")
 
     print("Voorspellingen opgeslagen in reports/predictions/")
 

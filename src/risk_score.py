@@ -190,14 +190,14 @@ def compute_risk_score(result) -> dict:
 
 def analyze_screenshot(image_path: str, model_path: str = "models/zomboid_v1.pt"):
     model = YOLO(model_path)
-    results = model.predict(source=image_path, conf=0.25, verbose=False)
+    results = model.predict(source=image_path, conf=0.2, verbose=False)
     result = results[0]
     return compute_risk_score(result)
 
 
 def analyze_folder(folder_path: str, model_path: str = "models/zomboid_v1.pt") -> list[dict]:
     model = YOLO(model_path)
-    results = model.predict(source=folder_path, conf=0.25, verbose=False)
+    results = model.predict(source=folder_path, conf=0.2, verbose=False)
 
     all_risk_data = []
     for result in results:
